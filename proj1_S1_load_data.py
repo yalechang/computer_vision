@@ -5,11 +5,11 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import time
-pylab.ion()
+import cv2
 
 t0 = time.time()
 # Directory of the images of a video
-basepath = "/home/changyale/dataset/computer_vision/"
+basepath = "/Users/changyale/dataset/computer_vision/"
 video_1 = "EnterExitCrossingPaths2cor/"
 
 # Get the filenames of the images
@@ -46,10 +46,10 @@ for i in range(n_images-2):
 
 t1 = time.time()
 print t1-t0
+
 for i in range(n_images-2):
     print i,
-    plt.imshow(img_mask[i],cmap=cm.Greys_r)
-    plt.draw()
-    time.sleep(0.01)
-
+    cv2.imshow('IMG',img_mask[i])
+    cv2.waitKey(33)
+cv2.destroyWindow('IMG')
 
