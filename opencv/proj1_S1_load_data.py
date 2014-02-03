@@ -9,7 +9,7 @@ import cv2
 
 t0 = time.time()
 # Directory of the images of a video
-basepath = "/home/changyale/dataset/computer_vision/"
+basepath = "/Users/changyale/dataset/computer_vision/"
 video_1 = "EnterExitCrossingPaths2cor/"
 
 # Get the filenames of the images
