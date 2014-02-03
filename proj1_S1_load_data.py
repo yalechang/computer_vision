@@ -46,10 +46,22 @@ for i in range(n_images-2):
 
 t1 = time.time()
 print t1-t0
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
+im = ax.imshow(np.zeros((n_row,n_col)))
+fig.show()
+im.axes.figure.canvas.draw()
+
 for i in range(n_images-2):
     print i,
-    plt.imshow(img_mask[i],cmap=cm.Greys_r)
-    plt.draw()
-    time.sleep(0.01)
+    ax.set_title(str(i))
+    im = ax.imshow(img_mask[i])
+    im.axes.figure.canvas.draw()
+    
+    #plt.imshow(img_mask[i],cmap=cm.Greys_r)
+    #plt.draw()
+    #time.sleep(0.01)
 
 
