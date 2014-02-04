@@ -20,9 +20,12 @@ flag_video = 1
 # filter of first derivative of Gaussian>
 flag_t_filter = 'diff_gaussian'
 # (Optional) Choose kernel parameter for 'diff_gaussian'
-t_sigma = 10.0
+t_sigma = 0.1
 
 # Spatial Parameters
+# whether to apply spatial filtering
+flag_s = False
+
 # (Required)Choose 2D Spatial Filter<'box'->box filter; 'gaussian'->2D 
 # Gaussian filter>
 flag_s_filter = 'box'
@@ -66,11 +69,12 @@ img = np.array(img)
 assert img.shape == (n_images,n_row,n_col)
 
 # Apply 2D spatial filtering before computing temporal derivative
-filter_box = generate_filter('box',(3,3))
-filter_gaussian = generate_filter('gaussian',(3,3),sigma=1.0)
+if flag_s == True:
+    filter_box = generate_filter('box',(3,3))
+    filter_gaussian = generate_filter('gaussian',(3,3),sigma=1.0)
 
-for i in range(n_images):
-    img[i,:,:] = ndimage.filters.convolve(img[i,:,:],filter_box) 
+    for i in range(n_images):
+        img[i,:,:] = ndimage.filters.convolve(img[i,:,:],filter_box) 
 
 # the difference between two neighboring images
 th = 5

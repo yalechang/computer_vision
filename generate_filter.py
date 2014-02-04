@@ -37,12 +37,13 @@ def generate_filter(filter_name,filter_size,**kwargs):
             sigma = value
         x = np.array(range(-len_x,len_x+1))
         res = -x*np.exp(-x**2/(2*sigma**2))/(2*sigma**3*np.sqrt(2*np.pi))
-        #res = res/np.sum(abs(res))
+        res = res/np.sum(abs(res))
     else:
         print "ERROR: Filter Undefined"
 
     return res
 
 if __name__ == "__main__":
-    res = generate_filter('gaussian',(5,5),sigma=1.4)
+    res = generate_filter('diff_gaussian',(1,5),sigma=0.1)
     print res
+    print np.sum(abs(res))
