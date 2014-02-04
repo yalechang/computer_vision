@@ -44,6 +44,6 @@ def generate_filter(filter_name,filter_size,**kwargs):
     return res
 
 if __name__ == "__main__":
-    res = generate_filter('diff_gaussian',(1,5),sigma=0.1)
+    res = generate_filter('diff_gaussian',(1,5),sigma=10000.)
     print res
     print np.sum(abs(res))
