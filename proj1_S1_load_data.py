@@ -10,7 +10,7 @@ from generate_filter import generate_filter
 
 ################################ Parameter Settings ##########################
 # Choose dataset
-flag_video = 1
+flag_video = 2
 
 # Choose Temporal Filter<'diff' or 'diff_gaussian'>
 flag_t_filter = 'diff'
@@ -23,7 +23,7 @@ flag_s_filter = 'box'
 
 t0 = time.time()
 # Directory of the images of a video
-basepath = "/home/changyale/dataset/computer_vision/"
+basepath = "/Users/changyale/dataset/computer_vision/"
 video_1 = "EnterExitCrossingPaths2cor/"
 video_2 = "Office/"
 video_3 = "RedChair/"
