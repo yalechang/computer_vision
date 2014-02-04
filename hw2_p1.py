@@ -37,8 +37,7 @@ filter_box = np.ones((size_box,size_box))*1./(size_box*size_box)
 # images after filtering
 img_box = np.zeros((n_image,n_row,n_col))
 for i in range(n_image):
-    img_box[i,:,:] = ndimage.filters.convolve(img[i,:,:],filter_box,\
-            mode='constant')
+    img_box[i,:,:] = ndimage.filters.convolve(img[i,:,:],filter_box)
 # Problem 2
 # Noise estimation of image after box filtering
 noise_box_est = noise_estimation(img_box)

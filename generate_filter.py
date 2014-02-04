@@ -44,5 +44,5 @@ def generate_filter(filter_name,filter_size,**kwargs):
     return res
 
 if __name__ == "__main__":
-    res = generate_filter('diff_gaussian',(1,3),sigma=3.)
+    res = generate_filter('gaussian',(5,5),sigma=1.4)
     print res
