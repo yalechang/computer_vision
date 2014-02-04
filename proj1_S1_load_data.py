@@ -7,19 +7,20 @@ import matplotlib.cm as cm
 import time
 import cv2
 from generate_filter import generate_filter
+from scipy import ndimage
 
 ################################ Parameter Settings ##########################
 # Dataset Selection Parameter
 # (Required) Choose the video to use<1->EnterExitCrossingPaths2cor; 2->Office;
 # 3->RedChair>
-flag_video = 3
+flag_video = 1
 
 # Temporal Parameters
 # (Required) Choose Temporal Filter<'diff'->0.5*[-1,0,1]; 'diff_gaussian'->1D
 # filter of first derivative of Gaussian>
-flag_t_filter = 'diff'
+flag_t_filter = 'diff_gaussian'
 # (Optional) Choose kernel parameter for 'diff_gaussian'
-t_sigma = 1.0
+t_sigma = 10.0
 
 # Spatial Parameters
 # (Required)Choose 2D Spatial Filter<'box'->box filter; 'gaussian'->2D 
@@ -30,7 +31,7 @@ s_sigma = 1.0
 
 t0 = time.time()
 # Directory of the images of a video
-basepath = "/home/changyale/dataset/computer_vision/"
+basepath = "/Users/changyale/dataset/computer_vision/"
 video_1 = "EnterExitCrossingPaths2cor/"
 video_2 = "Office/"
 video_3 = "RedChair/"
@@ -64,6 +65,13 @@ n_row,n_col = img[0].shape
 img = np.array(img)
 assert img.shape == (n_images,n_row,n_col)
 
+# Apply 2D spatial filtering before computing temporal derivative
+filter_box = generate_filter('box',(3,3))
+filter_gaussian = generate_filter('gaussian',(3,3),sigma=1.0)
+
+for i in range(n_images):
+    img[i,:,:] = ndimage.filters.convolve(img[i,:,:],filter_box) 
+
 # the difference between two neighboring images
 th = 5
 img_diff = np.zeros((n_images,n_row,n_col))
@@ -72,18 +80,20 @@ img_mask = np.zeros((n_images,n_row,n_col))
 # 1D temporal derivative
 if flag_t_filter == 'diff':
     w = 0.5*np.array([-1.,0.,1.])
+elif flag_t_filter == 'diff_gaussian':
+    w = generate_filter('diff_gaussian',(1,5),sigma=t_sigma)
 
-img_diff[0,:,:] = w[0]*img[0,:,:]+w[2]*img[1,:,:]
-img_diff[n_images-1,:,:] = w[0]*img[n_images-2,:,:]+w[2]*img[n_images-1,:,:]
-for i in range(1,n_images-1):
-    img_diff[i,:,:] = w[0]*img[i-1,:,:]+w[1]*img[i,:,:]+w[2]*img[i+1,:,:]
+for i in range(n_row):
+    for j in range(n_col):
+        img_diff[:,i,j] = ndimage.filters.convolve(img[:,i,j],w)
 
 # Estimate noise for each image and set threshold for each image
 img_noise = np.zeros((n_images,1))
 for i in range(0,n_images-1):
     img_noise[i] = np.sum((img_diff[i+1,:,:]-img_diff[i,:,:])**2)/2/n_row/n_col
-    img_mask[i,:,:] = abs(img_diff[i,:,:])>np.sqrt(img_noise[i])*3.0
-
+    th = np.sqrt(img_noise[i])*3.0
+    img_mask[i,:,:] = abs(img_diff[i,:,:])>th
+    
 t1 = time.time()
 print t1-t0
 
