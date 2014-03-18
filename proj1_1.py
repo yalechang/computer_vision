@@ -24,7 +24,7 @@ t_sigma = 0.1
 
 # Spatial Parameters
 # whether to apply spatial filtering('spatial','nonspatial')
-flag_s = 'nonspatial'
+flag_s = 'spatial'
 
 # (Required)Choose 2D Spatial Filter('box'->box filter; 'gaussian'->2D 
 # Gaussian filter)
@@ -40,7 +40,7 @@ flag_adaptive = 'adaptive'
 th = 5
 
 # Display the whole video or selected images('video','images')
-flag_display = 'images'
+flag_display = 'video'
 
 ###################### END of Parameter Setting #############################
 
