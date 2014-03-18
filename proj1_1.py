@@ -46,7 +46,7 @@ flag_display = 'video'
 
 t0 = time.time()
 # Directory of the images of a video
-basepath = "/Users/changyale/dataset/computer_vision/"
+basepath = "/home/changyale/dataset/computer_vision/"
 video_1 = "EnterExitCrossingPaths2cor/"
 video_2 = "Office/"
 video_3 = "RedChair/"
@@ -120,7 +120,7 @@ for i in range(0,n_images-1):
 t1 = time.time()
 print t1-t0
 
-if flag_display == 'video':
+if flag_display == 'images':
     # Show the video
     for i in range(n_images):
         cv2.imshow('VIDEO',img[i,:,:]*img_mask[i,:,:])
