@@ -40,12 +40,14 @@ n_row,n_col = img[0].shape
 img = np.array(img)
 assert img.shape == (n_images,n_row,n_col)
 
-# Harris Edge Detector
 feat_harris = np.zeros(img.shape)
+# Harris Edge Detector
 for i in range(n_images):
-    tmp = feature.corner_harris(img[i],method='k',k=0.05,\
-            eps=1e-06,sigma=1.)
-    feat_harris[i] = non_maximal_suppresion(tmp,4)
-plt.imshow(feat_harris[2],cmap=cm.Greys_r)
+    tmp_1 = feature.corner_harris(img[i],method='k',k=0.04,\
+            eps=1e-06,sigma=0.7)
+    tmp_2 = feature.peak_local_max(tmp_1,min_distance=2,indices=False)
+    feat_harris[i] = img[i]*tmp_2
+    plt.figure(i)
+    plt.imshow(feat_harris[i],cmap=cm.Greys_r)
 plt.show()
 
