@@ -5,13 +5,39 @@ import matplotlib.cm as cm
 from scipy import ndimage
 import os
 from skimage import feature 
-from skimage.transform import warp
 from skimage.measure import ransac
 import matplotlib
 import cv2
 import copy
 import random
-from scipy import interpolate
+from point_region import point_region
+
+################### Parameter Settings ###################################
+# Choose which image dataset to use
+flag_imageset = 1
+
+# Choose image pairs to use for mosaicing in the selected image set
+img_a,img_b = (0,1)
+
+# The size of image patches used for computing normalized cross correlation
+# in feature matching
+radius = 5
+
+# Threshold for normalized cross correlation in order to remove mismatches
+th_ncc = 0.98
+
+# RANSAC: Number of random sampling
+n_iter_max = 100
+# RANSAC: number of samples(without replacement) in each random sampling
+n_sample = 4
+# RANSAC: threshold for distance between predicted coordinates by Homography
+# and the paired coordinates
+th_dis = 3
+# RANSAC: threshold for number of matches, for each point in source image, if
+# its number of matches is larger than th_cnt, then it should be inlier
+# otherwise it should be outlier
+th_cnt = 5
+##########################################################################
 
 # Directories of the datasets
 base_path = "/home/changyale/Dropbox/class_Spring_2014/computer_vision/"+\
@@ -20,9 +46,6 @@ imageset_1 = "DanaHallWay1/"
 imageset_2 = "DanaHallWay2/"
 imageset_3 = "DanaOffice/"
 
-# Choose which dataset to use
-flag_imageset = 1
-img_a,img_b = (0,1)
 if flag_imageset == 1:
     imageset = imageset_1
 if flag_imageset == 2:
@@ -40,7 +63,10 @@ for i in file_names:
 # Number of images
 n_images = len(img_names)
 
-# Read images into a array
+# Read images into two lists in the form of grayscale and color
+# Grayscale images are used for feature extraction and matching
+# Color image are used for mosaicing
+
 # color images
 img_color = []
 
@@ -55,17 +81,23 @@ n_row,n_col = img[0].shape
 img = np.array(img)
 assert img.shape == (n_images,n_row,n_col)
 
-# Extract Harris edge features from each image
+# Extract Harris edge features from each grayscale image
 feat_harris = []
 for i in range(n_images):
+    # Harris corner detector
     tmp = feature.corner_harris(img[i],method='k',k=0.05,\
             eps=1e-06,sigma=1.0)
+    # Only keep the local maximum using nonmax suppression
     feat_harris.append(feature.peak_local_max(tmp,min_distance=10))
 
-# Find image patches centered at corners and match them
-radius = 5
+# Compute normalized cross correlation between patches centered at corners of
+# img_a and img_b
+# ncc[i,j] measure the normalized cross correlation between i-th corner in
+# image_a and j-th corner in image_b
 ncc = np.zeros((feat_harris[img_a].shape[0],feat_harris[img_b].shape[0]))
 for i in range(feat_harris[img_a].shape[0]):
+    # coordinates in the order of (row_number,column_number) of i-th corner
+    # in image_a 
     coord = feat_harris[img_a][i]
     if coord[0]+radius>n_row or coord[0]-radius<0 or coord[1]+\
                 radius>n_col or coord[1]-radius<0:
@@ -85,32 +117,37 @@ for i in range(feat_harris[img_a].shape[0]):
                 patch_b_normalized = patch_b/np.linalg.norm(patch_b)
                 ncc[i,j] = np.sum(patch_a_normalized*patch_b_normalized)
 
-# Combine two images
-img_both = np.concatenate((img_color[img_a],img_color[img_b]),axis=0)
-img_2 = copy.deepcopy(img_both)
+# Stack the colored version(not grayscale) of img_a and img_b vertically
+img_1 = np.concatenate((img_color[img_a],img_color[img_b]),axis=0)
+img_2 = copy.deepcopy(img_1)
 
-# Note here for src, dst we use (x,y) coordinates in an image
+########################## Begin of RANSAC ##################################
+# Remove outliers of corner pairs by running RANSAC
+# src and dst store the coordinates of refined corner pairs in the source image
+# img_a and destination image img_b respectively.
+# Note here for src, dst we use (x,y) coordinates in an image, which is
+# in contrary order compared to (row_number,column_number) returned by Harris
+# corner detector
 src = []
 dst = []
 for i in range(ncc.shape[0]):
     for j in range(ncc.shape[1]):
-        if ncc[i,j] == np.max(ncc[i,:]) and ncc[i,j]>0.98:
+        if ncc[i,j] == np.max(ncc[i,:]) and ncc[i,j]>th_ncc:
             p1 = (feat_harris[img_a][i][1],feat_harris[img_a][i][0])
-            p2 = (feat_harris[img_b][j][1],feat_harris[img_b][j][0]+n_row)
-            cv2.line(img_both,p1,p2,(0,0,255))
+            p2 = (feat_harris[img_b][j][1],feat_harris[img_b][j][0])
             src.append(p1)
-            dst.append((feat_harris[img_b][j][1],feat_harris[img_b][j][0]))
+            dst.append(p2)
+            # Draw correspondence pairs before RANSAC
+            tmp = (p2[0],p2[1]+n_row)
+            cv2.line(img_1,p1,tmp,(0,0,255))
+
+# Transform src and dst from lists into array
 src = np.array(src)
 dst = np.array(dst)
 
-
-# Apply Ransac
-n_iter_max = 100
-n_sample = 4
-th = 3
-
+# cnt stored the number of right matches for each corners in img_a in RANSAC
+# if cnt[i] is larger than certain threshold th_dis, then 
 cnt = np.zeros((src.shape[0],1))
-
 for n_iter in range(n_iter_max):
     # Random sample points from src and dst
     idx = random.sample(range(src.shape[0]),n_sample)
@@ -129,18 +166,19 @@ for n_iter in range(n_iter_max):
         x2 = int(tmp[0,0]/tmp[2,0])
         y2 = int(tmp[1,0]/tmp[2,0])
         distance = np.sqrt((dst[i,0]-x2)**2+(dst[i,1]-y2)**2)
-        if distance < th:
+        if distance < th_dis:
             cnt[idx,0] += 1
-
 
 # selected corresponding pairs
 idx_sel = []
 for i in range(src.shape[0]):
-    if cnt[i,0]>5:
+    if cnt[i,0]>th_cnt:
         p1 = (src[i,0],src[i,1])
-        p2 = (dst[i,0],dst[i,1]+n_row)
-        cv2.line(img_2,p1,p2,(0,0,255))
+        tmp = (dst[i,0],dst[i,1]+n_row)
+        # Draw corresponding pairs after RANSAC
+        cv2.line(img_2,p1,tmp,(0,0,255))
         idx_sel.append(i)
+############################## End of RANSAC ################################
 
 # Use selected pairs to estimate the Homography
 src_sel = src[idx_sel,:]
@@ -156,14 +194,83 @@ h_inv = np.linalg.inv(h)
 
 # Determine output image size
 src_bound = np.array([[1,1],[1,n_row],[n_col,1],[n_col,n_row]])
-dst_bound = []
+dst_bound = np.zeros(src_bound.shape)
 for i in range(src_bound.shape[0]):
-    
+    tmp = h.dot(np.hstack((src_bound[i],1)).reshape(3,1))
+    x2 = tmp[0,0]/tmp[2,0]
+    y2 = tmp[1,0]/tmp[2,0]
+    dst_bound[i,:] = np.array([x2,y2])
+
+# Determine coordinates range of canvas
+x_min = np.int(np.ceil(min(np.min(dst_bound[:,0]),1)))
+x_max = np.int(np.floor(max(np.max(dst_bound[:,0]),n_col)))
+y_min = np.int(np.ceil(min(np.min(dst_bound[:,1]),1)))
+y_max = np.int(np.floor(max(np.max(dst_bound[:,1]),n_row)))
+print x_min,x_max,y_min,y_max
+
+img_mc = np.zeros((y_max-y_min+1,x_max-x_min+1,3))
+
+# Offset of coordinates(x,y) in img_mc
+offset = np.array([1-x_min,1-y_min])
+
+tmp_b = np.array([[1,1],[1,n_row],[n_col,n_row],[n_col,1]])
+tmp_a = np.array([[x_min,y_min],[x_min,y_max],[x_max,y_max],\
+                [x_max,y_min]])
+# Begin mosaic
+for x in range(img_mc.shape[1]):
+    for y in range(img_mc.shape[0]):
+        point = np.array([x,y])
+        # If point appears in img_b
+        flag_b = point_region(tmp_b,point)
+        # If point appears in img_a               
+        flag_a = point_region(tmp_a,point)
+
+        # Case 1: pixel only appears in image_a
+        if flag_a == True and flag_b == False:
+            coord_b = np.array([x,y])-offset
+            tmp = h_inv.dot(np.hstack((coord_b,1)).reshape(3,1))
+            coord_a = np.array([tmp[0,0]/tmp[2,0],tmp[1,0]/tmp[2,0]])
+            if coord_a[0]>=n_col:
+                coord_a[0] = n_col-1
+            if coord_a[1]>=n_row:
+                coord_a[1] = n_row-1
+            img_mc[y,x,:] = img_color[img_a][int(coord_a[1]),int(coord_a[0]),:]
+        # Case 2: pixel only appears in image_b
+        if flag_a == False and flag_b == True:
+            coord_b = np.array([x,y])-offset
+            if coord_b[0]>=n_col:
+                coord_b[0] = n_col-1
+            if coord_b[1]>=n_row:
+                coord_b[1] = n_row-1
+            img_mc[y,x,:] = img_color[img_b][coord_b[1],coord_b[0],:]
+        # Case 3: pixel does not appear in image_a and image_b
+        if flag_a == False and flag_b == False:
+            pass
+        # Case 4: pixel appear in both image_a and image_b, need blending
+        if flag_a == True and flag_b == True:
+            coord_b == np.array([x,y])-offset
+            if coord_b[0]>=n_col:
+                coord_b[0] = n_col-1
+            if coord_b[1]>=n_row:
+                coord_b[1] = n_row-1
+            tmp = h_inv.dot(np.hstack((coord_b,1)).reshape(3,1))
+            coord_a = np.array([tmp[0,0]/tmp[2,0],tmp[1,0]/tmp[2,0]])
+            if coord_a[0]>=n_col:
+                coord_a[0] = n_col-1
+            if coord_a[1]>=n_row:
+                coord_a[1] = n_row-1
+            img_mc[y,x,:] = 0.5*img_color[img_a][int(coord_a[1]),\
+                    int(coord_a[0]),:]+0.5*img_color[img_b][coord_b[1],\
+                    coord_b[0],:]
+    print x
+plt.figure(0)
+plt.imshow(img_mc)
+plt.show()
 
 
 #print cnt
 #plt.figure(1)
-#plt.imshow(img_both)
+#plt.imshow(img_1)
 #plt.figure(2)
 #plt.imshow(img_2)
 #plt.show()
