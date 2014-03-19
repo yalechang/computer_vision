@@ -154,16 +154,18 @@ u,s,v = np.linalg.svd(mtr_a.T.dot(mtr_a))
 h = u[:,-1].reshape(3,3)
 h_inv = np.linalg.inv(h)
 
-# Apply wrap
-tmp = warp(img_color[img_b],h)
-plt.figure(0)
-plt.imshow(tmp)
+# Determine output image size
+src_bound = np.array([[1,1],[1,n_row],[n_col,1],[n_col,n_row]])
+dst_bound = []
+for i in range(src_bound.shape[0]):
+    
 
-print cnt
-plt.figure(1)
-plt.imshow(img_both)
-plt.figure(2)
-plt.imshow(img_2)
-plt.show()
+
+#print cnt
+#plt.figure(1)
+#plt.imshow(img_both)
+#plt.figure(2)
+#plt.imshow(img_2)
+#plt.show()
 
 
