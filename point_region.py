@@ -23,7 +23,10 @@ def line_two_points(points):
         a = points[0,1]-points[1,1]
         b = points[1,0]-points[0,0]
         c = points[0,0]*points[1,1]-points[1,0]*points[0,1]
-        return np.array([1.,b*1./a,c*1./a])
+        if a == 0:
+            return np.array([0,1,c*1./b])
+        else:
+            return np.array([1.,b*1./a,c*1./a])
 
 def point_region(bound,point):
     """ Tell if a point lies in the region specified by four bounding points
@@ -62,6 +65,6 @@ def point_region(bound,point):
     return flag
 
 if __name__ == "__main__":
-    bound = np.array([[0,1],[1,0],[2,1],[1,2]])
-    point = np.array([1,0.5])
+    bound = np.array([[0,1],[0,0],[1,0],[1,1]])
+    point = np.array([0.2,1.0])
     print point_region(bound,point)

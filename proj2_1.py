@@ -11,13 +11,14 @@ import cv2
 import copy
 import random
 from point_region import point_region
+from time import time
 
 ################### Parameter Settings ###################################
 # Choose which image dataset to use
 flag_imageset = 1
 
 # Choose image pairs to use for mosaicing in the selected image set
-img_a,img_b = (0,1)
+img_a,img_b = (2,0)
 
 # The size of image patches used for computing normalized cross correlation
 # in feature matching
@@ -193,7 +194,7 @@ h = u[:,-1].reshape(3,3)
 h_inv = np.linalg.inv(h)
 
 # Determine output image size
-src_bound = np.array([[1,1],[1,n_row],[n_col,1],[n_col,n_row]])
+src_bound = np.array([[1,1],[1,n_row],[n_col,n_row],[n_col,1]])
 dst_bound = np.zeros(src_bound.shape)
 for i in range(src_bound.shape[0]):
     tmp = h.dot(np.hstack((src_bound[i],1)).reshape(3,1))
@@ -210,69 +211,75 @@ print x_min,x_max,y_min,y_max
 
 img_mc = np.zeros((y_max-y_min+1,x_max-x_min+1,3))
 
-# Offset of coordinates(x,y) in img_mc
-offset = np.array([1-x_min,1-y_min])
+bound_b = src_bound
+bound_a = dst_bound
 
-tmp_b = np.array([[1,1],[1,n_row],[n_col,n_row],[n_col,1]])
-tmp_a = np.array([[x_min,y_min],[x_min,y_max],[x_max,y_max],\
-                [x_max,y_min]])
 # Begin mosaic
+t0 = time()
+print "Mosaic begins:"
+
+xx,yy = np.meshgrid(range(x_min,x_max+1),range(y_min,y_max+1))
+
 for x in range(img_mc.shape[1]):
     for y in range(img_mc.shape[0]):
-        point = np.array([x,y])
+        point = np.array([xx[y,x],yy[y,x]])
         # If point appears in img_b
-        flag_b = point_region(tmp_b,point)
-        # If point appears in img_a               
-        flag_a = point_region(tmp_a,point)
-
+        flag_b = point_region(bound_b,point)
+        # If point appears in img_a              
+        flag_a = point_region(bound_a,point)
+        #print flag_a,flag_b
         # Case 1: pixel only appears in image_a
         if flag_a == True and flag_b == False:
-            coord_b = np.array([x,y])-offset
+            coord_b = point
+            if coord_b[0]>n_col:
+                coord_b[0] = n_col
+            if coord_b[1]>n_row:
+                coord_b[1] = n_row
             tmp = h_inv.dot(np.hstack((coord_b,1)).reshape(3,1))
             coord_a = np.array([tmp[0,0]/tmp[2,0],tmp[1,0]/tmp[2,0]])
-            if coord_a[0]>=n_col:
-                coord_a[0] = n_col-1
-            if coord_a[1]>=n_row:
-                coord_a[1] = n_row-1
-            img_mc[y,x,:] = img_color[img_a][int(coord_a[1]),int(coord_a[0]),:]
+            if coord_a[0]>n_col:
+                coord_a[0] = n_col
+            if coord_a[1]>n_row:
+                coord_a[1] = n_row
+            img_mc[y,x] = img_color[img_a][int(coord_a[1]-1),\
+                    int(coord_a[0]-1)]
         # Case 2: pixel only appears in image_b
         if flag_a == False and flag_b == True:
-            coord_b = np.array([x,y])-offset
-            if coord_b[0]>=n_col:
-                coord_b[0] = n_col-1
-            if coord_b[1]>=n_row:
-                coord_b[1] = n_row-1
-            img_mc[y,x,:] = img_color[img_b][coord_b[1],coord_b[0],:]
+            coord_b = point
+            if coord_b[0]>n_col:
+                coord_b[0] = n_col
+            if coord_b[1]>n_row:
+                coord_b[1] = n_row
+            img_mc[y,x] = img_color[img_b][coord_b[1]-1,coord_b[0]-1]
         # Case 3: pixel does not appear in image_a and image_b
         if flag_a == False and flag_b == False:
             pass
         # Case 4: pixel appear in both image_a and image_b, need blending
         if flag_a == True and flag_b == True:
-            coord_b == np.array([x,y])-offset
-            if coord_b[0]>=n_col:
-                coord_b[0] = n_col-1
-            if coord_b[1]>=n_row:
-                coord_b[1] = n_row-1
+            coord_b == point
+            if coord_b[0]>n_col:
+                coord_b[0] = n_col
+            if coord_b[1]>n_row:
+                coord_b[1] = n_row
             tmp = h_inv.dot(np.hstack((coord_b,1)).reshape(3,1))
             coord_a = np.array([tmp[0,0]/tmp[2,0],tmp[1,0]/tmp[2,0]])
-            if coord_a[0]>=n_col:
-                coord_a[0] = n_col-1
-            if coord_a[1]>=n_row:
-                coord_a[1] = n_row-1
-            img_mc[y,x,:] = 0.5*img_color[img_a][int(coord_a[1]),\
-                    int(coord_a[0]),:]+0.5*img_color[img_b][coord_b[1],\
-                    coord_b[0],:]
-    print x
+            if coord_a[0]>n_col:
+                coord_a[0] = n_col
+            if coord_a[1]>n_row:
+                coord_a[1] = n_row
+            img_mc[y,x] = 0.5*img_color[img_a][int(coord_a[1]-1),\
+                    int(coord_a[0]-1)]+0.5*img_color[img_b][coord_b[1]-1,\
+                    coord_b[0]-1]
+
+print "Mosaic ends",time()-t0
 plt.figure(0)
 plt.imshow(img_mc)
-plt.show()
-
 
 #print cnt
-#plt.figure(1)
-#plt.imshow(img_1)
-#plt.figure(2)
-#plt.imshow(img_2)
-#plt.show()
+plt.figure(1)
+plt.imshow(img_1)
+plt.figure(2)
+plt.imshow(img_2)
+plt.show()
 
 
