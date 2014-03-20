@@ -10,7 +10,7 @@ import matplotlib
 import cv2
 import copy
 import random
-from point_region import point_region
+from point_in_poly import point_in_poly
 from time import time
 
 ################### Parameter Settings ###################################
@@ -18,7 +18,7 @@ from time import time
 flag_imageset = 1
 
 # Choose image pairs to use for mosaicing in the selected image set
-img_a,img_b = (2,0)
+img_a,img_b = (1,0)
 
 # The size of image patches used for computing normalized cross correlation
 # in feature matching
@@ -211,8 +211,11 @@ print x_min,x_max,y_min,y_max
 
 img_mc = np.zeros((y_max-y_min+1,x_max-x_min+1,3))
 
-bound_b = src_bound
-bound_a = dst_bound
+bound_b = []
+bound_a = []
+for i in range(src_bound.shape[0]):
+    bound_b.append(list(src_bound[i,:]))
+    bound_a.append(list(dst_bound[i,:]))
 
 # Begin mosaic
 t0 = time()
@@ -224,10 +227,10 @@ for x in range(img_mc.shape[1]):
     for y in range(img_mc.shape[0]):
         point = np.array([xx[y,x],yy[y,x]])
         # If point appears in img_b
-        flag_b = point_region(bound_b,point)
+        flag_b = point_in_poly(xx[y,x],yy[y,x],bound_b)
         # If point appears in img_a              
-        flag_a = point_region(bound_a,point)
-        #print flag_a,flag_b
+        flag_a = point_in_poly(xx[y,x],yy[y,x],bound_a)
+        #print point,flag_a,flag_b
         # Case 1: pixel only appears in image_a
         if flag_a == True and flag_b == False:
             coord_b = point
@@ -241,8 +244,8 @@ for x in range(img_mc.shape[1]):
                 coord_a[0] = n_col
             if coord_a[1]>n_row:
                 coord_a[1] = n_row
-            img_mc[y,x] = img_color[img_a][int(coord_a[1]-1),\
-                    int(coord_a[0]-1)]
+            img_mc[y,x,:] = img_color[img_a][int(coord_a[1]-1),\
+                    int(coord_a[0]-1),:]
         # Case 2: pixel only appears in image_b
         if flag_a == False and flag_b == True:
             coord_b = point
@@ -250,13 +253,13 @@ for x in range(img_mc.shape[1]):
                 coord_b[0] = n_col
             if coord_b[1]>n_row:
                 coord_b[1] = n_row
-            img_mc[y,x] = img_color[img_b][coord_b[1]-1,coord_b[0]-1]
+            img_mc[y,x,:] = img_color[img_b][coord_b[1]-1,coord_b[0]-1,:]
         # Case 3: pixel does not appear in image_a and image_b
         if flag_a == False and flag_b == False:
             pass
         # Case 4: pixel appear in both image_a and image_b, need blending
         if flag_a == True and flag_b == True:
-            coord_b == point
+            coord_b = point
             if coord_b[0]>n_col:
                 coord_b[0] = n_col
             if coord_b[1]>n_row:
@@ -267,19 +270,21 @@ for x in range(img_mc.shape[1]):
                 coord_a[0] = n_col
             if coord_a[1]>n_row:
                 coord_a[1] = n_row
-            img_mc[y,x] = 0.5*img_color[img_a][int(coord_a[1]-1),\
-                    int(coord_a[0]-1)]+0.5*img_color[img_b][coord_b[1]-1,\
-                    coord_b[0]-1]
+            #w_b = min([coord_b[0]-x_min,x_max-coord_b[0],coord_b[1]-y_min,\
+            #        y_max-coord_b[1]])
+            #w_a = min([coord_a[0]-x_min,x_max-coord_a[0],coord_a[1]-y_min,\
+            #        y_max-coord_a[1]])
+            img_mc[y,x,:] = (0.5*img_color[img_b][int(coord_b[1]-1),\
+                    int(coord_b[0]-1),:]+0.5*img_color[img_a][coord_a[1]-1,\
+                    coord_a[0]-1,:])/(1.)
 
 print "Mosaic ends",time()-t0
-plt.figure(0)
-plt.imshow(img_mc)
 
 #print cnt
 plt.figure(1)
 plt.imshow(img_1)
 plt.figure(2)
 plt.imshow(img_2)
+plt.figure(3)
+plt.imshow(img_mc.astype('uint8'))
 plt.show()
-
-

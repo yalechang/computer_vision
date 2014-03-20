@@ -24,7 +24,7 @@ def line_two_points(points):
         b = points[1,0]-points[0,0]
         c = points[0,0]*points[1,1]-points[1,0]*points[0,1]
         if a == 0:
-            return np.array([0,1,c*1./b])
+            return np.array([0,1.,c*1./b])
         else:
             return np.array([1.,b*1./a,c*1./a])
 
