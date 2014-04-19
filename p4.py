@@ -12,17 +12,21 @@ import random
 from time import time
 from get_subwindow import get_subwindow
 from sklearn.cluster import KMeans
+from sklearn.cluster import SpectralClustering
+from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.preprocessing import scale
+from sklearn.decomposition import PCA
+from python.computer_vision.compute_affinity import compute_affinity
 
 ################## Parameter Settings ########################
 # Size of patches around interesting points
-sz_patch = (25-1)/2
+sz_patch = (11-1)/2
 
 # Number of clusters for visual words
 # n_clusters = 10
 
 # Directories of dataset
-base_path = "/Users/changyale/dataset/computer_vision/"
+base_path = "/home/changyale/dataset/computer_vision/"
 train_set = "CarTrainImages/"
 test_set = "CarTestImages/"
 ground_truth = "GroundTruth/"
@@ -70,19 +74,41 @@ for i in range(len(feat_harris)):
             feat_desc.append(tmp[0,:])
 feat_desc = np.array(feat_desc)
 
+# Apply PCA to reduce dimensionality of feat_desc
+pca = PCA(n_components=30)
+feat_pca = pca.fit_transform(feat_desc/255)
+print "PCA Variance Ratio:",sum(pca.explained_variance_ratio_)
+
 # Step(c): Cluster the patches images into clusters using K-means. This step is
 # meant to significantly reduce the number of possible visual words. The
 # clusters that you find here constitute a "visual vocabulary".
-n_clusters_range = range(2,20)
+n_clusters_range = range(2,3)
 score = []
 
 for n_clusters in n_clusters_range:
-    clf = KMeans(n_clusters=n_clusters,init='k-means++',n_init=10,n_jobs=-1)
-    clf.fit(scale(feat_desc[0:200,:]))
-    score.append(clf.score(feat_desc))
+    
+    """
+    # Affinity matrix, diagonal elements should be set to be 0
+    sigma,tmp = compute_affinity(feat_pca,flag_sigma='global')
+    mtr_aff = tmp*(np.ones(tmp.shape)-np.eye(tmp.shape[0]))
+    
+    # Degree matrix
+    tmp = np.diag(1./np.sum(mtr_aff,1))
+
+    # Laplacian matrix
+    mtr_lap = np.eye(tmp.shape[0])-tmp.dot(mtr_aff)
+    
+    eig_val,eig_vec = np.linalg.eig(mtr_lap)
+    idx = eig_val.argsort()
+    eig_val = eig_val[idx]
+    eig_vec = eig_vec[:,idx]
+    """
+    clf = KMeans(n_clusters=n_clusters,init='random')
+    clf.fit(feat_pca)
+    score.append(clf.score(feat_pca))
     print n_clusters
-plt.plot(n_clusters_range,score)
-plt.show()
+#plt.plot(n_clusters_range,score)
+#plt.show()
 
 # Step(d): Having found the vocabulary, go back to each training example and
 # assign their local patches to visual words in the vocabulary. An image patch
