@@ -10,13 +10,19 @@ import cv2
 import copy
 import random
 from time import time
+from get_subwindow import get_subwindow
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import scale
 
 ################## Parameter Settings ########################
 # Size of patches around interesting points
 sz_patch = (25-1)/2
 
+# Number of clusters for visual words
+# n_clusters = 10
+
 # Directories of dataset
-base_path = "/Users/changyale/dataset/computer_vision/"
+base_path = "/home/changyale/dataset/computer_vision/"
 train_set = "CarTrainImages/"
 test_set = "CarTestImages/"
 ground_truth = "GroundTruth/"
@@ -58,17 +64,25 @@ for i in range(len(img)):
 feat_desc = []
 for i in range(len(feat_harris)):
     if feat_harris[i].shape[0]>0:
-        for j in range(len(feat_harris[i].shape[0])):
-            row,col = list(feat_harris[i][j,:])
-            row_range = np.array(range(row-sz_patch,row+sz_patch+1))
-            col_range = np.array(range(col-sz_patch,row+sz_patch+1))
-            row_range(row_range<0) = 0
-            col_range(col_range<0) = 0
-            row_range(row_range>img)
+        for j in range(feat_harris[i].shape[0]):
+            tmp = get_subwindow(img[i],list(feat_harris[i][j,:]),sz_patch)
+            tmp = tmp.reshape(1,tmp.shape[0]*tmp.shape[1])
+            feat_desc.append(tmp[0,:])
+feat_desc = np.array(feat_desc)
 
 # Step(c): Cluster the patches images into clusters using K-means. This step is
 # meant to significantly reduce the number of possible visual words. The
 # clusters that you find here constitute a "visual vocabulary".
+n_clusters_range = range(10,11)
+score = []
+
+for n_clusters in n_clusters_range:
+    clf = KMeans(n_clusters=n_clusters,init='random',n_init=10,n_jobs=-1)
+    clf.fit(scale(feat_desc))
+    score.append(clf.score(feat_desc))
+    print n_clusters
+plt.plot(n_clusters_range,score)
+plt.show()
 
 # Step(d): Having found the vocabulary, go back to each training example and
 # assign their local patches to visual words in the vocabulary. An image patch
