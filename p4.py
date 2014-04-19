@@ -22,7 +22,7 @@ sz_patch = (25-1)/2
 # n_clusters = 10
 
 # Directories of dataset
-base_path = "/home/changyale/dataset/computer_vision/"
+base_path = "/Users/changyale/dataset/computer_vision/"
 train_set = "CarTrainImages/"
 test_set = "CarTestImages/"
 ground_truth = "GroundTruth/"
@@ -73,12 +73,12 @@ feat_desc = np.array(feat_desc)
 # Step(c): Cluster the patches images into clusters using K-means. This step is
 # meant to significantly reduce the number of possible visual words. The
 # clusters that you find here constitute a "visual vocabulary".
-n_clusters_range = range(10,11)
+n_clusters_range = range(2,20)
 score = []
 
 for n_clusters in n_clusters_range:
-    clf = KMeans(n_clusters=n_clusters,init='random',n_init=10,n_jobs=-1)
-    clf.fit(scale(feat_desc))
+    clf = KMeans(n_clusters=n_clusters,init='k-means++',n_init=10,n_jobs=-1)
+    clf.fit(scale(feat_desc[0:200,:]))
     score.append(clf.score(feat_desc))
     print n_clusters
 plt.plot(n_clusters_range,score)
