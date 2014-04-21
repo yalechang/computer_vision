@@ -203,9 +203,10 @@ for i1 in range(img[img_a].shape[0]):
                     patch_b_normalized = patch_b/np.linalg.norm(patch_b)
                     ncc.append(np.sum(patch_a_normalized*patch_b_normalized))
                     idx_ncc.append([i2,j2])
-        i2_sel,j2_sel = idx_ncc[ncc.index(max(ncc))]
-        disparity_vertical[i1,j1] = i2_sel-i1
-        disparity_horizontal[i1,j1] = j2_sel-j1
+        if len(ncc)>0:
+            i2_sel,j2_sel = idx_ncc[ncc.index(max(ncc))]
+            disparity_vertical[i1,j1] = i2_sel-i1
+            disparity_horizontal[i1,j1] = j2_sel-j1
     t2 = time()
     print i1,t2-t1
 
