@@ -59,7 +59,6 @@ elif _platform == 'linux2' or _platform == 'linux':
     base_path = "/home/changyale/dataset/computer_vision/proje/"
 else:
     print "base_path Error!"
-    return
 
 if flag_imageset == 1:
     img_names = [base_path+"cast-left.jpg",base_path+"cast-right.jpg"]
