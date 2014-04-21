@@ -195,9 +195,17 @@ for i1 in range(img[img_a].shape[0]):
         a,b,c = h.dot(np.hstack((np.array([j1,i1]),1)))
         ncc = []
         idx_ncc = []
-        for i2 in range(img[img_b].shape[0]):
-            if a != 0:
-                j2 = int((-c-b*(i2))/a)
+        if abs(b)>abs(a):
+            for j2 in range(img[img_b].shape[1]):
+                i2 = int((-c-a*(j2))/b)
+                if i2>=0 and i2<img[img_b].shape[0]:
+                    patch_b = get_subwindow(img[img_b],[i2,j2],radius)
+                    patch_b_normalized = patch_b/np.linalg.norm(patch_b)
+                    ncc.append(np.sum(patch_a_normalized*patch_b_normalized))
+                    idx_ncc.append([i2,j2])
+        else:
+            for i2 in range(img[img_b].shape[0]):
+                j2 = int((-c-b*i2)/a)
                 if j2>=0 and j2<img[img_b].shape[1]:
                     patch_b = get_subwindow(img[img_b],[i2,j2],radius)
                     patch_b_normalized = patch_b/np.linalg.norm(patch_b)
@@ -212,9 +220,9 @@ for i1 in range(img[img_a].shape[0]):
 
 # Normalize disparity to [0,255]
 tmp = copy.deepcopy(disparity_vertical)
-disparity_norm_v = np.floor(tmp*1./(np.max(tmp)-np.min(tmp))*255.)
+disparity_norm_v = np.floor((tmp-np.min(tmp))*1./(np.max(tmp)-np.min(tmp))*255.)
 tmp = copy.deepcopy(disparity_horizontal)
-disparity_norm_h = np.floor(tmp*1./(np.max(tmp)-np.min(tmp))*255.)
+disparity_norm_h = np.floor((tmp-np.min(tmp))*1./(np.max(tmp)-np.min(tmp))*255.)
 
 # Visualization
 plt.figure(1)
@@ -222,8 +230,8 @@ plt.imshow(img_1)
 plt.figure(2)
 plt.imshow(img_2)
 plt.figure(3)
-plt.imshow(disparity_norm_v.astype('uint8'))
+plt.imshow(disparity_norm_v.astype('uint8'),cmap=cm.Greys_r)
 plt.figure(4)
-plt.imshow(disparity_norm_h.astype('uint8'))
+plt.imshow(disparity_norm_h.astype('uint8'),cmap=cm.Greys_r)
 plt.show()
 

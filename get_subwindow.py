@@ -23,12 +23,16 @@ def get_subwindow(im,pos,sz):
     col_range[col_range<0] = 0
     col_range[col_range>im.shape[1]-1] = im.shape[1]-1
     
+    """
     out = []
     for i in row_range:
         for j in col_range:
             out.append(im[i,j])
-    
-    return np.array(out).reshape(sz*2+1,sz*2+1)
+    """
+    yy,xx = np.meshgrid(row_range,col_range)
+    return im[yy,xx].T
+
+    #return np.array(out).reshape(sz*2+1,sz*2+1)
 
 if __name__ == "__main__":
     im = np.arange(36).reshape(6,6)
