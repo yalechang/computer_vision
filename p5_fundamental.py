@@ -18,7 +18,7 @@ from sys import platform as _platform
 t0 = time()
 ############################# Parameter Settings ###########################
 # Choose image set
-flag_imageset = 1
+flag_imageset = 2
 
 # Choose the pair of images in selected set
 img_a,img_b = (0,1)
