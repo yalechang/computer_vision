@@ -12,10 +12,12 @@ import copy
 import random
 from point_in_poly import point_in_poly
 from time import time
+from python.computer_vision.get_subwindow import get_subwindow
 
+t0 = time()
 ############################# Parameter Settings ###########################
 # Choose image set
-flag_imageset = 2
+flag_imageset = 1
 
 # Choose the pair of images in selected set
 img_a,img_b = (0,1)
@@ -37,16 +39,16 @@ else:
     pass
 
 # RANSAC: Number of random sampling
-n_iter_max = 1000
+n_iter_max = 100
 # RANSAC: number of samples(without replacement) in each random sampling
-n_sample = 4
+n_sample = 8
 # RANSAC: threshold for distance between predicted coordinates by Homography
 # and the paired coordinates
-th_dis = 3
+th_dis = 1e-3
 # RANSAC: threshold for number of matches, for each point in source image, if
 # its number of matches is larger than th_cnt, then it should be inlier
 # otherwise it should be outlier
-th_cnt = 100
+th_cnt = 3
 #############################################################################
 
 # Directory of the dataset
@@ -141,20 +143,17 @@ for n_iter in range(n_iter_max):
     idx = random.sample(range(src.shape[0]),n_sample)
     src_sample = src[idx,:]
     dst_sample = dst[idx,:]
-    mtr_a = np.zeros((2*src_sample.shape[0],9))
+    mtr_a = np.zeros((src_sample.shape[0],9))
+    assert src_sample.shape[0]>=8
     for i in range(src_sample.shape[0]):
         [x1,y1,x2,y2] = [src_sample[i,0],src_sample[i,1],dst_sample[i,0],\
                 dst_sample[i,1]]
-        mtr_a[i*2,:] = np.array([x1,y1,1,0,0,0,-x1*x2,-y1*x2,-x2])
-        mtr_a[i*2+1,:] = np.array([0,0,0,x1,y1,1,-x1*y2,-y1*y2,-y2])
+        mtr_a[i,:] = np.array([x1*x2,x1*y2,x1,y1*x2,y1*y2,y1,x2,y2,1])
     u,s,v = np.linalg.svd(mtr_a.T.dot(mtr_a))
     h = u[:,-1].reshape(3,3)
     for i in list(set(range(src.shape[0]))-set(idx)):
-        tmp = h.dot(np.hstack((src[i],1)).reshape(3,1))
-        x2 = int(tmp[0,0]/tmp[2,0])
-        y2 = int(tmp[1,0]/tmp[2,0])
-        distance = np.sqrt((dst[i,0]-x2)**2+(dst[i,1]-y2)**2)
-        if distance < th_dis:
+        tmp = np.hstack((dst[i],1)).dot(h.dot(np.hstack((src[i],1)).reshape(3,1)))
+        if abs(tmp) < th_dis:
             cnt[idx,0] += 1
 
 # selected corresponding pairs
@@ -168,110 +167,62 @@ for i in range(src.shape[0]):
         idx_sel.append(i)
 ############################## End of RANSAC ################################
 
-# Use selected pairs to estimate the Homography
+# Use selected pairs to estimate Fundamental matrix
 src_sel = src[idx_sel,:]
 dst_sel = dst[idx_sel,:]
-mtr_a = np.zeros((2*len(idx_sel),9))
-for i in range(src_sel.shape[0]):
-    [x1,y1,x2,y2] = [src_sel[i,0],src_sel[i,1],dst_sel[i,0],dst_sel[i,1]]
-    mtr_a[i*2,:] = np.array([x1,y1,1,0,0,0,-x1*x2,-y1*x2,-x2])
-    mtr_a[i*2+1,:] = np.array([0,0,0,x1,y1,1,-x1*y2,-y1*y2,-y2])
+mtr_a = np.zeros((src_sample.shape[0],9))
+assert src_sample.shape[0]>=8
+for i in range(src_sample.shape[0]):
+    [x1,y1,x2,y2] = [src_sample[i,0],src_sample[i,1],dst_sample[i,0],\
+            dst_sample[i,1]]
+    mtr_a[i,:] = np.array([x1*x2,x1*y2,x1,y1*x2,y1*y2,y1,x2,y2,1])
 u,s,v = np.linalg.svd(mtr_a.T.dot(mtr_a))
 h = u[:,-1].reshape(3,3)
 h_inv = np.linalg.inv(h)
 
-# Determine output image size
-src_bound = np.array([[1,1],[1,n_row],[n_col,n_row],[n_col,1]])
-dst_bound = np.zeros(src_bound.shape)
-for i in range(src_bound.shape[0]):
-    tmp = h.dot(np.hstack((src_bound[i],1)).reshape(3,1))
-    x2 = tmp[0,0]/tmp[2,0]
-    y2 = tmp[1,0]/tmp[2,0]
-    dst_bound[i,:] = np.array([x2,y2])
+# Compute a dense disparity map using the Fundamental matrix to help reduce the
+# search space. The output should be two images, one image with the vertical
+# disparity component, and another image with the horizontal disparity
+# component,scale the grayscale so the lowest disparity is 0 and the highest
+# disparity is 255.
+disparity_vertical = np.zeros(img[img_a].shape)
+disparity_horizontal = np.zeros(img[img_a].shape)
+for i1 in range(img[img_a].shape[0]):
+    t1 = time()
+    for j1 in range(img[img_a].shape[1]):
+        patch_a = get_subwindow(img[img_a],[i1,j1],radius)
+        patch_a_normalized = patch_a/np.linalg.norm(patch_a)
+        a,b,c = h.dot(np.hstack((np.array([j1,i1]),1)))
+        ncc = []
+        idx_ncc = []
+        for i2 in range(img[img_b].shape[0]):
+            if a != 0:
+                j2 = int((-c-b*(i2))/a)
+                if j2>=0 and j2<img[img_b].shape[1]:
+                    patch_b = get_subwindow(img[img_b],[i2,j2],radius)
+                    patch_b_normalized = patch_b/np.linalg.norm(patch_b)
+                    ncc.append(np.sum(patch_a_normalized*patch_b_normalized))
+                    idx_ncc.append([i2,j2])
+        i2_sel,j2_sel = idx_ncc[ncc.index(max(ncc))]
+        disparity_vertical[i1,j1] = i2_sel-i1
+        disparity_horizontal[i1,j1] = j2_sel-j1
+    t2 = time()
+    print i1,t2-t1
 
-# Determine coordinates range of canvas
-x_min = np.int(np.ceil(min(np.min(dst_bound[:,0]),1)))
-x_max = np.int(np.floor(max(np.max(dst_bound[:,0]),n_col)))
-y_min = np.int(np.ceil(min(np.min(dst_bound[:,1]),1)))
-y_max = np.int(np.floor(max(np.max(dst_bound[:,1]),n_row)))
-print x_min,x_max,y_min,y_max
+# Normalize disparity to [0,255]
+tmp = copy.deepcopy(disparity_vertical)
+disparity_norm_v = np.floor(tmp*1./(np.max(tmp)-np.min(tmp))*255.)
+tmp = copy.deepcopy(disparity_horizontal)
+disparity_norm_h = np.floor(tmp*1./(np.max(tmp)-np.min(tmp))*255.)
 
-img_mc = np.zeros((y_max-y_min+1,x_max-x_min+1,3))
-
-bound_b = []
-bound_a = []
-for i in range(src_bound.shape[0]):
-    bound_b.append(list(src_bound[i,:]))
-    bound_a.append(list(dst_bound[i,:]))
-
-# Begin mosaic
-t0 = time()
-print "Mosaic begins:"
-
-xx,yy = np.meshgrid(range(x_min,x_max+1),range(y_min,y_max+1))
-
-for x in range(img_mc.shape[1]):
-    for y in range(img_mc.shape[0]):
-        point = np.array([xx[y,x],yy[y,x]])
-        # If point appears in img_b
-        flag_b = point_in_poly(xx[y,x],yy[y,x],bound_b)
-        # If point appears in img_a              
-        flag_a = point_in_poly(xx[y,x],yy[y,x],bound_a)
-        #print point,flag_a,flag_b
-        # Case 1: pixel only appears in image_a
-        if flag_a == True and flag_b == False:
-            coord_b = point
-            if coord_b[0]>n_col:
-                coord_b[0] = n_col
-            if coord_b[1]>n_row:
-                coord_b[1] = n_row
-            tmp = h_inv.dot(np.hstack((coord_b,1)).reshape(3,1))
-            coord_a = np.array([tmp[0,0]/tmp[2,0],tmp[1,0]/tmp[2,0]])
-            if coord_a[0]>n_col:
-                coord_a[0] = n_col
-            if coord_a[1]>n_row:
-                coord_a[1] = n_row
-            img_mc[y,x,:] = img_color[img_a][int(coord_a[1]-1),\
-                    int(coord_a[0]-1),:]
-        # Case 2: pixel only appears in image_b
-        if flag_a == False and flag_b == True:
-            coord_b = point
-            if coord_b[0]>n_col:
-                coord_b[0] = n_col
-            if coord_b[1]>n_row:
-                coord_b[1] = n_row
-            img_mc[y,x,:] = img_color[img_b][coord_b[1]-1,coord_b[0]-1,:]
-        # Case 3: pixel does not appear in image_a and image_b
-        if flag_a == False and flag_b == False:
-            pass
-        # Case 4: pixel appear in both image_a and image_b, need blending
-        if flag_a == True and flag_b == True:
-            coord_b = point
-            if coord_b[0]>n_col:
-                coord_b[0] = n_col
-            if coord_b[1]>n_row:
-                coord_b[1] = n_row
-            tmp = h_inv.dot(np.hstack((coord_b,1)).reshape(3,1))
-            coord_a = np.array([tmp[0,0]/tmp[2,0],tmp[1,0]/tmp[2,0]])
-            if coord_a[0]>n_col:
-                coord_a[0] = n_col
-            if coord_a[1]>n_row:
-                coord_a[1] = n_row
-            w_b = min([coord_b[0]-x_min,x_max-coord_b[0],coord_b[1]-y_min,\
-                    y_max-coord_b[1]])
-            w_a = min([coord_a[0]-x_min,x_max-coord_a[0],coord_a[1]-y_min,\
-                    y_max-coord_a[1]])
-            img_mc[y,x,:] = (w_a*img_color[img_b][int(coord_b[1]-1),\
-                    int(coord_b[0]-1),:]+w_b*img_color[img_a][coord_a[1]-1,\
-                    coord_a[0]-1,:])/(w_a+w_b)
-
-print "Mosaic ends",time()-t0
-
-#print cnt
+# Visualization
 plt.figure(1)
 plt.imshow(img_1)
 plt.figure(2)
 plt.imshow(img_2)
 plt.figure(3)
-plt.imshow(img_mc.astype('uint8'))
+plt.imshow(disparity_norm_v.astype('uint8'))
+plt.figure(4)
+plt.imshow(disparity_norm_h.astype('uint8'))
 plt.show()
+
