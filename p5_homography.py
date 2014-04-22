@@ -12,6 +12,7 @@ import copy
 import random
 from point_in_poly import point_in_poly
 from time import time
+from sys import platform as _platform
 
 ############################# Parameter Settings ###########################
 # Choose image set
@@ -50,7 +51,13 @@ th_cnt = 100
 #############################################################################
 
 # Directory of the dataset
-base_path = "/home/changyale/dataset/computer_vision/proje/"
+if _platform == 'darwin':
+    base_path = "/Users/changyale/dataset/computer_vision/proje/"
+elif _platform == 'linux2' or _platform == 'linux':
+    base_path = "/home/changyale/dataset/computer_vision/proje/"
+else:
+    print "base_path Error!"
+
 if flag_imageset == 1:
     img_names = [base_path+"cast-left.jpg",base_path+"cast-right.jpg"]
 if flag_imageset == 2:
