@@ -19,6 +19,7 @@ from sklearn.decomposition import PCA
 from python.computer_vision.compute_affinity import compute_affinity
 from python.computer_vision.rect_overlap import rect_overlap
 import scipy.io
+from sys import platform as _platform
 
 t0 = time()
 ################## Parameter Settings ########################
@@ -26,7 +27,7 @@ t0 = time()
 sz_patch = (25-1)/2
 
 # Number of clusters for visual words
-n_clusters = 20
+n_clusters = 50
 
 # Minimum distance in Harris Corner Detector Non-maximum Suppression
 mindis_harris = 5
@@ -35,7 +36,13 @@ mindis_harris = 5
 times_kmeans = 1
 
 # Directories of dataset
-base_path = "/Users/changyale/dataset/computer_vision/"
+if _platform == 'darwin':
+    base_path = "/Users/changyale/dataset/computer_vision/"
+elif _platform == 'linux2' or _platform == 'linux':
+    base_path = '/home/changyale/dataset/computer_vision/'
+else:
+    base_path = "base_path Error!"
+
 train_set = "CarTrainImages/"
 test_set = "CarTestImages/"
 ground_truth = "GroundTruth/"
@@ -115,7 +122,7 @@ for n_clusters in n_clusters_range:
     clf_list = []
     inertia_list = []
     for i in range(times_kmeans):
-        clf = KMeans(n_clusters=n_clusters,init='random')
+        clf = KMeans(n_clusters=n_clusters,init='k-means++')
         clf.fit(feat_desc/255)
         clf_list.append(clf)
         inertia_list.append(clf.inertia_)
@@ -175,26 +182,6 @@ labels_pred = clf.predict(feat_desc_test/255)
 
 # Step(d): Let each visual word occurence vote for the position of the object
 # using the stored displacement vectors.
-"""
-# votes for each visual word
-votes = []
-for i in range(n_clusters):
-    idx_row = []
-    idx_col = []
-    for j in range(len(displacement[i])):
-        idx_row.append(displacement[i][j][0])
-        idx_col.append(displacement[i][j][1])
-    idx_row = np.array(idx_row)
-    bins_row = np.max(idx_row)-np.min(idx_row)
-    idx_col = np.array(idx_col)
-    bins_col = np.max(idx_col)-np.min(idx_col)
-    hist,edge_row,edge_col = np.histogram2d(idx_row,idx_col,bins=[10,10])
-    idx_peak = np.unravel_index(hist.argmax(),hist.shape)
-    row_peak = np.floor((edge_row[idx_peak[0]]+edge_row[idx_peak[0]+1])/2)
-    col_peak = np.floor((edge_col[idx_peak[1]]+edge_col[idx_peak[1]+1])/2)
-    votes.append([row_peak,col_peak])
-votes = np.array(votes)
-"""
 
 # Step(e): After all votes are cast, analyze the votes in the accumulatory
 # array, threshold and predict where the object occurs. To predict the fixed
@@ -251,6 +238,13 @@ for i in range(x[0].shape[0]):
         ratio = area_overlap*1.0/area_union
         if ratio > 0.5:
             cnt += 1
+            tmp = copy.deepcopy(img_test[i]).astype('uint8')
+            cv2.rectangle(tmp,(int(rect_pred[0][0]),\
+                    int(rect_pred[0][1])),(int(rect_pred[0][0])+100,\
+                    int(rect_pred[0][1])+40),color=0)
+            plt.figure(i)
+            plt.imshow(tmp,cmap=cm.Greys_r)
+            plt.savefig("proj_4/"+str(i)+".png")
             #print i+1
     else:
         for j in range(truth[i].shape[0]):
@@ -260,7 +254,16 @@ for i in range(x[0].shape[0]):
             ratio = area_overlap*1.0/area_union
             if ratio > 0.5:
                 cnt += 1
+                tmp = copy.deepcopy(img_test[i]).astype('uint8')
+                cv2.rectangle(tmp,(int(rect_pred[0][0]),\
+                        int(rect_pred[0][1])),(int(rect_pred[0][0])+100,\
+                        int(rect_pred[0][1])+40),color=0)
+                plt.figure(i)
+                plt.imshow(tmp,cmap=cm.Greys_r)
+                plt.savefig("proj_4/"+str(i)+".png")
                 #print i+1
 
 print "Accuracy:",cnt*1./100
 print "RunningTime:",time()-t0
+#plt.show()
+
